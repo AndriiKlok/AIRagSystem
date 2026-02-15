@@ -1,0 +1,6 @@
+@CompanyKnowledgeAssistant.API_HostAddress = http://localhost:5079
+
+GET {{CompanyKnowledgeAssistant.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

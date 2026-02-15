@@ -1,0 +1,83 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.userprefs
+*.pidb
+*.dll
+*.pdb
+*.exe
+*.cache
+*.log
+*.vsidx
+*.vspscc
+*.v2
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa]rm/
+[Aa]rm64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio
+.vs/
+.vscode/
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+app.db
+
+# User-specific files
+*.user
+*.userosscache
+*.sln.docstates
+
+# Uploads and runtime data folders
+uploads/
+/data/
+
+# Node.js (Angular)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Angular build output
+dist/
+tmp/
+out-tsc/
+bazel-out/
+
+# IDEs
+.idea/
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# System Files
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Logs
+logs/
+*.log
+npm-debug.log*

@@ -1,0 +1,23 @@
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Areas</h2>
+    <a routerLink="/areas/new" class="btn btn-primary">Create Area</a>
+  </div>
+
+  <div class="row">
+    <div class="col-md-4 mb-4" *ngFor="let area of areas">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">{{ area.name }}</h5>
+          <p class="card-text">{{ area.description || 'No description' }}</p>
+          <p class="text-muted">Documents: {{ area.documentCount }}, Chats: {{ area.chatCount }}</p>
+          <div class="btn-group">
+            <a [routerLink]="['/areas', area.id]" class="btn btn-outline-primary btn-sm">View</a>
+            <a [routerLink]="['/areas', area.id, 'edit']" class="btn btn-outline-secondary btn-sm">Edit</a>
+            <button (click)="deleteArea(area.id)" class="btn btn-outline-danger btn-sm">Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
