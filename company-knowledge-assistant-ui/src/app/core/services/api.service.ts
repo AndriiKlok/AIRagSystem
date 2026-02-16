@@ -87,6 +87,10 @@ export class ApiService {
     return this.http.post(`${this.baseUrl}/documents/upload?areaId=${areaId}`, formData);
   }
 
+  deleteDocument(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/documents/${id}`);
+  }
+
   // Chats
   getChats(areaId: number): Observable<Chat[]> {
     return this.http.get<Chat[]>(`${this.baseUrl}/chats?areaId=${areaId}`);

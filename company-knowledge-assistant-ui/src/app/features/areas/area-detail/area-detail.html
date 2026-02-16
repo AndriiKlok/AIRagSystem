@@ -1,1 +1,87 @@
-<p>area-detail works!</p>
+<div class="container mt-4">
+  <div *ngIf="area" class="row">
+    <div class="col-12">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item"><a routerLink="/areas">Areas</a></li>
+          <li class="breadcrumb-item active" aria-current="page">{{ area.name }}</li>
+        </ol>
+      </nav>
+
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h1>{{ area.name }}</h1>
+          <p class="text-muted" *ngIf="area.description">{{ area.description }}</p>
+          <small class="text-muted">
+            Created: {{ area.createdAt | date:'medium' }} |
+            Documents: {{ area.documentCount }} |
+            Chats: {{ area.chatCount }}
+          </small>
+        </div>
+        <button class="btn btn-primary" (click)="createChat()">
+          <i class="bi bi-chat-dots"></i> New Chat
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Documents</h5>
+          <button class="btn btn-sm btn-outline-primary" routerLink="/documents/upload" [queryParams]="{areaId: areaId}">
+            <i class="bi bi-upload"></i> Upload
+          </button>
+        </div>
+        <div class="card-body">
+          <div *ngIf="documents.length === 0" class="text-center text-muted">
+            No documents uploaded yet.
+          </div>
+          <div *ngFor="let doc of documents" class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+              <strong>{{ doc.fileName }}</strong>
+              <br>
+              <small class="text-muted">
+                {{ doc.fileSize | number }} bytes |
+                Status: {{ doc.processingStatus }} |
+                Chunks: {{ doc.chunkCount }}
+              </small>
+            </div>
+            <button class="btn btn-sm btn-outline-danger" (click)="deleteDocument(doc.id)">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">Chats</h5>
+        </div>
+        <div class="card-body">
+          <div *ngIf="chats.length === 0" class="text-center text-muted">
+            No chats created yet.
+          </div>
+          <div *ngFor="let chat of chats" class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+              <a [routerLink]="['/chats', chat.id]" class="text-decoration-none">
+                <strong>{{ chat.name }}</strong>
+              </a>
+              <br>
+              <small class="text-muted">
+                Messages: {{ chat.messageCount }} |
+                Last: {{ chat.lastMessageAt | date:'short' }}
+              </small>
+            </div>
+            <button class="btn btn-sm btn-outline-danger" (click)="deleteChat(chat.id)">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

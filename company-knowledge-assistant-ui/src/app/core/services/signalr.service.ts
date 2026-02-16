@@ -50,9 +50,22 @@ export class SignalrService {
     }
   }
 
-  onReceiveMessage(callback: (message: any) => void): void {
+  addMessageListener(callback: (message: any) => void): void {
     if (this.hubConnection) {
       this.hubConnection.on('ReceiveMessage', callback);
+    }
+  }
+
+  removeMessageListener(): void {
+    if (this.hubConnection) {
+      this.hubConnection.off('ReceiveMessage');
+    }
+  }
+
+  stopConnection(): void {
+    if (this.hubConnection) {
+      this.hubConnection.stop();
+      this.connectionStatus.next(false);
     }
   }
 

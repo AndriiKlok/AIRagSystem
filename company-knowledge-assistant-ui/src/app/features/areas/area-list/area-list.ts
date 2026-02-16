@@ -25,6 +25,19 @@ export class AreaList implements OnInit {
     });
   }
 
+  createArea(): void {
+    const name = prompt('Enter area name:');
+    if (name) {
+      const description = prompt('Enter description (optional):');
+      this.apiService.createArea({ name, description: description || undefined }).subscribe({
+        next: (area) => {
+          this.areas.push(area);
+        },
+        error: (err) => console.error('Error creating area:', err)
+      });
+    }
+  }
+
   deleteArea(id: number): void {
     if (confirm('Are you sure you want to delete this area?')) {
       this.apiService.deleteArea(id).subscribe({

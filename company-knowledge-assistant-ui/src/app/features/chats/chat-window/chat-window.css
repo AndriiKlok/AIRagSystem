@@ -1,0 +1,38 @@
+.messages-container {
+  max-height: calc(100vh - 200px);
+  background-color: #f8f9fa;
+}
+
+.message {
+  max-width: 80%;
+  padding: 1rem;
+  border-radius: 0.5rem;
+}
+
+.message-user {
+  margin-left: auto;
+  background-color: #007bff;
+  color: white;
+}
+
+.message-assistant {
+  margin-right: auto;
+  background-color: white;
+  border: 1px solid #dee2e6;
+}
+
+.message-header {
+  font-size: 0.875rem;
+}
+
+.message-content {
+  word-wrap: break-word;
+}
+
+.input-area {
+  background-color: white;
+}
+
+.input-group textarea {
+  resize: none;
+}
