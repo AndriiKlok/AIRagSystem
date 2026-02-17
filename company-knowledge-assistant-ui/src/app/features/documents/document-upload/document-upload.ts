@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule, ActivatedRoute } from '@angular/router';
+import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import { ApiService } from '../../../core/services/api.service';
 
 @Component({
@@ -17,7 +17,8 @@ export class DocumentUpload {
 
   constructor(
     private route: ActivatedRoute,
-    private apiService: ApiService
+    private apiService: ApiService,
+    private router: Router
   ) {
     this.areaId = Number(this.route.snapshot.queryParamMap.get('areaId')) || 0;
   }
@@ -52,11 +53,11 @@ export class DocumentUpload {
     this.uploadProgress = 0;
 
     this.apiService.uploadDocument(this.areaId, this.selectedFile).subscribe({
-      next: (response) => {
+      next: () => {
         this.isUploading = false;
         alert('Document uploaded successfully!');
         this.selectedFile = null;
-        // Optionally navigate back to area detail
+        this.router.navigate(['/areas', this.areaId]);
       },
       error: (err) => {
         this.isUploading = false;

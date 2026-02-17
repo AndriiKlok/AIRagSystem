@@ -1,3 +1,168 @@
 /* You can add global styles to this file, and also import other style files */
 
 @import 'bootstrap/dist/css/bootstrap.min.css';
+
+/* Dark theme variables */
+:root {
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #2d2d2d;
+  --bg-tertiary: #404040;
+  --text-primary: #ffffff;
+  --text-secondary: #cccccc;
+  --text-muted: #888888;
+  --border-color: #555555;
+  --accent-color: #007bff;
+  --accent-hover: #0056b3;
+  --card-bg: #2d2d2d;
+  --input-bg: #404040;
+  --navbar-bg: #1a1a1a;
+}
+
+/* Light theme (default) */
+.light-theme {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-tertiary: #e9ecef;
+  --text-primary: #212529;
+  --text-secondary: #6c757d;
+  --text-muted: #adb5bd;
+  --border-color: #dee2e6;
+  --accent-color: #007bff;
+  --accent-hover: #0056b3;
+  --card-bg: #ffffff;
+  --input-bg: #ffffff;
+  --navbar-bg: #007bff;
+}
+
+/* Apply theme variables */
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.navbar {
+  background-color: var(--navbar-bg) !important;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.navbar-dark .navbar-nav .nav-link {
+  color: var(--text-primary) !important;
+}
+
+.navbar-dark .navbar-brand {
+  color: var(--text-primary) !important;
+}
+
+.card {
+  background-color: var(--card-bg);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.btn-outline-primary {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.btn-outline-primary:hover {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+}
+
+.btn-outline-danger {
+  border-color: #dc3545;
+  color: #dc3545;
+}
+
+.btn-outline-danger:hover {
+  background-color: #dc3545;
+  border-color: #dc3545;
+}
+
+.form-control {
+  background-color: var(--input-bg);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.form-control:focus {
+  background-color: var(--input-bg);
+  border-color: var(--accent-color);
+  color: var(--text-primary);
+}
+
+.text-muted {
+  color: var(--text-muted) !important;
+}
+
+.breadcrumb {
+  background-color: var(--bg-secondary);
+}
+
+.upload-area {
+  border-color: var(--border-color) !important;
+}
+
+.upload-area:hover {
+  border-color: var(--accent-color) !important;
+}
+
+.message-user {
+  background-color: var(--accent-color);
+}
+
+.message-assistant {
+  background-color: var(--card-bg);
+  border-color: var(--border-color);
+}
+
+.messages-container {
+  background-color: var(--bg-secondary);
+  transition: background-color 0.3s ease;
+}
+
+.input-area {
+  background-color: var(--card-bg);
+  border-color: var(--border-color) !important;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.input-group .form-control {
+  border-color: var(--border-color);
+  transition: border-color 0.3s ease;
+}
+
+.input-group .form-control:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.btn-primary {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.btn-primary:hover {
+  background-color: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.table {
+  color: var(--text-primary);
+}
+
+.table thead th {
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+.table td {
+  border-color: var(--border-color);
+}
+
+/* Additional theme transitions */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}

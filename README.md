@@ -40,6 +40,14 @@ A production-ready RAG (Retrieval-Augmented Generation) system for intelligent q
 
 ## Setup
 
+## Local Ports
+
+- Frontend (Angular dev server): http://localhost:4200
+- Backend API (HTTP): http://localhost:5000
+- Backend API (HTTPS): https://localhost:7181
+- SignalR Hub: http://localhost:5000/chatHub
+- Ollama: http://localhost:11434
+
 ### 1. Clone Repository
 
 ```bash
@@ -178,10 +186,11 @@ Create a chat within an area to ask questions about uploaded documents.
 }
 ```
 
-### Frontend (`src/app/core/services/api.service.ts`)
+### Frontend (`src/app/core/config/api.config.ts`)
 
 ```typescript
-private baseUrl = 'http://localhost:5000/api';
+export const API_BASE_URL = 'http://localhost:5000/api';
+export const SIGNALR_HUB_URL = 'http://localhost:5000/chatHub';
 ```
 
 ## API Endpoints

@@ -1,23 +1,46 @@
 import { Injectable } from '@angular/core';
-import { HubConnection, HubConnectionBuilder } from '@microsoft/signalr';
+import { HubConnection, HubConnectionBuilder, HubConnectionState } from '@microsoft/signalr';
 import { BehaviorSubject } from 'rxjs';
+import { SIGNALR_HUB_URL } from '../config/api.config';
 
 @Injectable({
   providedIn: 'root'
 })
 export class SignalrService {
   private hubConnection: HubConnection | null = null;
+  private startPromise: Promise<void> | null = null;
   private connectionStatus = new BehaviorSubject<boolean>(false);
 
   connectionStatus$ = this.connectionStatus.asObservable();
 
-  startConnection(): void {
-    this.hubConnection = new HubConnectionBuilder()
-      .withUrl('http://localhost:5000/chatHub')
-      .withAutomaticReconnect()
-      .build();
+  startConnection(): Promise<void> {
+    if (!this.hubConnection) {
+      this.hubConnection = new HubConnectionBuilder()
+        .withUrl(SIGNALR_HUB_URL)
+        .withAutomaticReconnect()
+        .build();
 
-    this.hubConnection.start()
+      this.hubConnection.onreconnected(() => {
+        console.log('SignalR reconnected');
+        this.connectionStatus.next(true);
+      });
+
+      this.hubConnection.onclose(() => {
+        console.log('SignalR connection closed');
+        this.connectionStatus.next(false);
+      });
+    }
+
+    if (this.hubConnection.state === HubConnectionState.Connected) {
+      this.connectionStatus.next(true);
+      return Promise.resolve();
+    }
+
+    if (this.startPromise) {
+      return this.startPromise;
+    }
+
+    this.startPromise = this.hubConnection.start()
       .then(() => {
         console.log('SignalR connection started');
         this.connectionStatus.next(true);
@@ -25,28 +48,57 @@ export class SignalrService {
       .catch(err => {
         console.error('Error starting SignalR connection:', err);
         this.connectionStatus.next(false);
+        throw err;
+      })
+      .finally(() => {
+        this.startPromise = null;
       });
 
-    this.hubConnection.onreconnected(() => {
-      console.log('SignalR reconnected');
-      this.connectionStatus.next(true);
-    });
+    return this.startPromise;
+  }
 
-    this.hubConnection.onclose(() => {
-      console.log('SignalR connection closed');
-      this.connectionStatus.next(false);
-    });
+  private invokeWhenConnected(methodName: string, ...args: any[]): void {
+    this.startConnection()
+      .then(() => {
+        if (this.hubConnection && this.hubConnection.state === HubConnectionState.Connected) {
+          return this.hubConnection.invoke(methodName, ...args);
+        }
+        return Promise.reject(new Error(`SignalR connection is not connected for method ${methodName}.`));
+      })
+      .catch(err => {
+        console.error(`Error invoking ${methodName}:`, err);
+      });
   }
 
   joinChat(chatId: number): void {
-    if (this.hubConnection) {
-      this.hubConnection.invoke('JoinChat', chatId);
-    }
+    this.invokeWhenConnected('JoinChat', chatId);
   }
 
   leaveChat(chatId: number): void {
+    if (this.hubConnection && this.hubConnection.state === HubConnectionState.Connected) {
+      this.hubConnection.invoke('LeaveChat', chatId).catch(err => console.error('Error invoking LeaveChat:', err));
+    }
+  }
+
+  joinArea(areaId: number): void {
+    this.invokeWhenConnected('JoinArea', areaId);
+  }
+
+  leaveArea(areaId: number): void {
+    if (this.hubConnection && this.hubConnection.state === HubConnectionState.Connected) {
+      this.hubConnection.invoke('LeaveArea', areaId).catch(err => console.error('Error invoking LeaveArea:', err));
+    }
+  }
+
+  addDocumentProgressListener(callback: (progress: any) => void): void {
     if (this.hubConnection) {
-      this.hubConnection.invoke('LeaveChat', chatId);
+      this.hubConnection.on('DocumentProgress', callback);
+    }
+  }
+
+  removeDocumentProgressListener(): void {
+    if (this.hubConnection) {
+      this.hubConnection.off('DocumentProgress');
     }
   }
 
@@ -64,14 +116,13 @@ export class SignalrService {
 
   stopConnection(): void {
     if (this.hubConnection) {
-      this.hubConnection.stop();
+      this.hubConnection.stop().catch(err => console.error('Error stopping SignalR connection:', err));
+      this.startPromise = null;
       this.connectionStatus.next(false);
     }
   }
 
   sendMessage(chatId: number, message: any): void {
-    if (this.hubConnection) {
-      this.hubConnection.invoke('SendMessage', chatId, message);
-    }
+    this.invokeWhenConnected('SendMessage', chatId, message);
   }
 }

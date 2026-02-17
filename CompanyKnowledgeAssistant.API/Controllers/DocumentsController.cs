@@ -1,7 +1,9 @@
+using CompanyKnowledgeAssistant.API.Hubs;
 using CompanyKnowledgeAssistant.Core.Entities;
 using CompanyKnowledgeAssistant.Infrastructure.Data;
 using CompanyKnowledgeAssistant.Infrastructure.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
 using ChunkEntity = CompanyKnowledgeAssistant.Core.Entities.Chunk;
@@ -15,15 +17,18 @@ public class DocumentsController : ControllerBase
     private readonly AppDbContext _dbContext;
     private readonly DocumentProcessorService _processor;
     private readonly EmbeddingService _embeddingService;
+    private readonly IHubContext<ChatHub> _hubContext;
 
     public DocumentsController(
         AppDbContext dbContext,
         DocumentProcessorService processor,
-        EmbeddingService embeddingService)
+        EmbeddingService embeddingService,
+        IHubContext<ChatHub> hubContext)
     {
         _dbContext = dbContext;
         _processor = processor;
         _embeddingService = embeddingService;
+        _hubContext = hubContext;
     }
 
     [HttpGet]
@@ -43,6 +48,37 @@ public class DocumentsController : ControllerBase
             return NotFound();
 
         return Ok(document);
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteDocument(int id)
+    {
+        var document = await _dbContext.Documents.FindAsync(id);
+        if (document == null)
+            return NotFound();
+
+        var areaId = document.AreaId;
+        var filePath = document.FilePath;
+
+        _dbContext.Documents.Remove(document);
+        await _dbContext.SaveChangesAsync();
+
+        if (!string.IsNullOrWhiteSpace(filePath) && System.IO.File.Exists(filePath))
+        {
+            System.IO.File.Delete(filePath);
+        }
+
+        var area = await _dbContext.Areas.FindAsync(areaId);
+        if (area != null)
+        {
+            area.DocumentCount = await _dbContext.Documents.CountAsync(d => d.AreaId == areaId);
+            await _dbContext.SaveChangesAsync();
+        }
+
+        await _hubContext.Clients.Group($"area-{areaId}")
+            .SendAsync("DocumentProgress", new { documentId = id, status = "Deleted", progress = 100 });
+
+        return NoContent();
     }
 
     [HttpPost("upload")]
@@ -99,13 +135,30 @@ public class DocumentsController : ControllerBase
             document.ProcessingStatus = "Processing";
             await _dbContext.SaveChangesAsync();
 
+            // Send progress update
+            await _hubContext.Clients.Group($"area-{document.AreaId}")
+                .SendAsync("DocumentProgress", new { documentId, status = "Processing", progress = 10 });
+
             var fileType = Path.GetExtension(document.FileName).TrimStart('.');
             var text = _processor.ExtractText(document.FilePath, fileType);
+
+            // Send progress update
+            await _hubContext.Clients.Group($"area-{document.AreaId}")
+                .SendAsync("DocumentProgress", new { documentId, status = "Processing", progress = 30 });
+
             var chunks = _processor.SplitIntoChunks(text);
+
+            // Send progress update
+            await _hubContext.Clients.Group($"area-{document.AreaId}")
+                .SendAsync("DocumentProgress", new { documentId, status = "Processing", progress = 50 });
 
             // Generate embeddings in parallel
             var contents = chunks.Select(c => c.Content).ToList();
             var embeddings = await _embeddingService.GenerateEmbeddingsParallel(contents);
+
+            // Send progress update
+            await _hubContext.Clients.Group($"area-{document.AreaId}")
+                .SendAsync("DocumentProgress", new { documentId, status = "Processing", progress = 80 });
 
             for (int i = 0; i < chunks.Count; i++)
             {
@@ -136,12 +189,20 @@ public class DocumentsController : ControllerBase
                 area.DocumentCount = await _dbContext.Documents.CountAsync(d => d.AreaId == document.AreaId);
                 await _dbContext.SaveChangesAsync();
             }
+
+            // Send completion update
+            await _hubContext.Clients.Group($"area-{document.AreaId}")
+                .SendAsync("DocumentProgress", new { documentId, status = "Completed", progress = 100 });
         }
         catch (Exception ex)
         {
             document.ProcessingStatus = "Failed";
             document.ErrorMessage = ex.Message;
             await _dbContext.SaveChangesAsync();
+
+            // Send error update
+            await _hubContext.Clients.Group($"area-{document.AreaId}")
+                .SendAsync("DocumentProgress", new { documentId, status = "Failed", progress = 0, error = ex.Message });
         }
     }
 }

@@ -18,4 +18,19 @@ public class ChatHub : Hub
     {
         await Clients.Group($"chat-{chatId}").SendAsync("ReceiveMessage", message);
     }
+
+    public async Task JoinArea(int areaId)
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"area-{areaId}");
+    }
+
+    public async Task LeaveArea(int areaId)
+    {
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"area-{areaId}");
+    }
+
+    public async Task SendDocumentProgress(int areaId, object progress)
+    {
+        await Clients.Group($"area-{areaId}").SendAsync("DocumentProgress", progress);
+    }
 }

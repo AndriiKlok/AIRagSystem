@@ -5,6 +5,8 @@ import { RouterModule, ActivatedRoute } from '@angular/router';
 import { ApiService, Message } from '../../../core/services/api.service';
 import { SignalrService } from '../../../core/services/signalr.service';
 import { SafeHtmlPipe } from '../../../shared/pipes/safe-html.pipe';
+import { Inject, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 
 @Component({
   selector: 'app-chat-window',
@@ -21,10 +23,15 @@ export class ChatWindow implements OnInit, OnDestroy {
   constructor(
     private route: ActivatedRoute,
     private apiService: ApiService,
-    private signalrService: SignalrService
+    private signalrService: SignalrService,
+    @Inject(PLATFORM_ID) private platformId: Object
   ) { }
 
   ngOnInit(): void {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+
     this.chatId = Number(this.route.snapshot.paramMap.get('id'));
     if (this.chatId) {
       this.loadMessages();
@@ -37,9 +44,11 @@ export class ChatWindow implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.signalrService.leaveChat(this.chatId);
-    this.signalrService.removeMessageListener();
-    this.signalrService.stopConnection();
+    if (isPlatformBrowser(this.platformId)) {
+      this.signalrService.leaveChat(this.chatId);
+      this.signalrService.removeMessageListener();
+      this.signalrService.stopConnection();
+    }
   }
 
   loadMessages(): void {

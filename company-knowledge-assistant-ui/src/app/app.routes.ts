@@ -11,6 +11,10 @@ export const routes: Routes = [
     loadComponent: () => import('./features/areas/area-list/area-list').then(m => m.AreaList)
   },
   {
+    path: 'areas/:id/edit',
+    loadComponent: () => import('./features/areas/area-detail/area-detail').then(m => m.AreaDetail)
+  },
+  {
     path: 'areas/:id',
     loadComponent: () => import('./features/areas/area-detail/area-detail').then(m => m.AreaDetail)
   },
