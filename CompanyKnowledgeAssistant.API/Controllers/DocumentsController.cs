@@ -113,16 +113,34 @@ public class DocumentsController : ControllerBase
             FileName = file.FileName,
             FilePath = filePath,
             FileSize = file.Length,
-            ProcessingStatus = "Uploading"
+            ProcessingStatus = "Uploaded"
         };
 
         _dbContext.Documents.Add(document);
+
+        area.DocumentCount = await _dbContext.Documents.CountAsync(d => d.AreaId == areaId) + 1;
         await _dbContext.SaveChangesAsync();
 
-        // Start processing in background
-        _ = Task.Run(() => ProcessDocumentAsync(document.Id));
+        // Notify clients that upload is complete
+        await _hubContext.Clients.Group($"area-{areaId}")
+            .SendAsync("DocumentProgress", new { documentId = document.Id, status = "Uploaded", progress = 100 });
 
-        return Ok(new { document.Id, message = "Upload started, processing in background" });
+        return Ok(new { document.Id, document.FileName, status = "Uploaded", message = "File uploaded. Click Analyze to process." });
+    }
+
+    [HttpPost("{id}/analyze")]
+    public async Task<IActionResult> AnalyzeDocument(int id)
+    {
+        var document = await _dbContext.Documents.FindAsync(id);
+        if (document == null)
+            return NotFound();
+
+        if (document.ProcessingStatus == "Processing")
+            return BadRequest(new { message = "Document is already being analyzed." });
+
+        _ = Task.Run(() => ProcessDocumentAsync(id));
+
+        return Ok(new { message = "Analysis started" });
     }
 
     private async Task ProcessDocumentAsync(int documentId)

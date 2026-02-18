@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpRequest, HttpEvent } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
 
@@ -86,6 +86,19 @@ export class ApiService {
     const formData = new FormData();
     formData.append('file', file);
     return this.http.post(`${this.baseUrl}/documents/upload?areaId=${areaId}`, formData);
+  }
+
+  uploadDocumentWithProgress(areaId: number, file: File): Observable<HttpEvent<any>> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const req = new HttpRequest('POST', `${this.baseUrl}/documents/upload?areaId=${areaId}`, formData, {
+      reportProgress: true
+    });
+    return this.http.request(req);
+  }
+
+  analyzeDocument(id: number): Observable<any> {
+    return this.http.post(`${this.baseUrl}/documents/${id}/analyze`, {});
   }
 
   deleteDocument(id: number): Observable<void> {
