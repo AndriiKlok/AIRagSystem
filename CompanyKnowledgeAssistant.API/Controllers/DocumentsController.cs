@@ -5,6 +5,7 @@ using CompanyKnowledgeAssistant.Infrastructure.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 using ChunkEntity = CompanyKnowledgeAssistant.Core.Entities.Chunk;
 
@@ -18,17 +19,23 @@ public class DocumentsController : ControllerBase
     private readonly DocumentProcessorService _processor;
     private readonly EmbeddingService _embeddingService;
     private readonly IHubContext<ChatHub> _hubContext;
+    private readonly ILogger<DocumentsController> _logger;
+    private readonly IServiceScopeFactory _scopeFactory;
 
     public DocumentsController(
         AppDbContext dbContext,
         DocumentProcessorService processor,
         EmbeddingService embeddingService,
-        IHubContext<ChatHub> hubContext)
+        IHubContext<ChatHub> hubContext,
+        ILogger<DocumentsController> logger,
+        IServiceScopeFactory scopeFactory)
     {
         _dbContext = dbContext;
         _processor = processor;
         _embeddingService = embeddingService;
         _hubContext = hubContext;
+        _logger = logger;
+        _scopeFactory = scopeFactory;
     }
 
     [HttpGet]
@@ -145,36 +152,57 @@ public class DocumentsController : ControllerBase
 
     private async Task ProcessDocumentAsync(int documentId)
     {
-        var document = await _dbContext.Documents.FindAsync(documentId);
-        if (document == null) return;
+        // Create a dedicated DI scope so we get a fresh AppDbContext.
+        // The controller's injected context is already disposed by the time
+        // this background task runs (the HTTP request lifetime ended).
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var embeddingService = scope.ServiceProvider.GetRequiredService<EmbeddingService>();
+
+        var document = await db.Documents.FindAsync(documentId);
+        if (document == null)
+        {
+            _logger.LogWarning("[Analyze] Document {Id} not found — aborting.", documentId);
+            return;
+        }
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        _logger.LogInformation("[Analyze] START doc={Id} file='{File}'", documentId, document.FileName);
 
         try
         {
             document.ProcessingStatus = "Processing";
-            await _dbContext.SaveChangesAsync();
+            await db.SaveChangesAsync();
 
-            // Send progress update
             await _hubContext.Clients.Group($"area-{document.AreaId}")
                 .SendAsync("DocumentProgress", new { documentId, status = "Processing", progress = 10 });
 
+            _logger.LogInformation("[Analyze] [{Elapsed}ms] Extracting text from '{File}' (type={Type})",
+                sw.ElapsedMilliseconds, document.FileName,
+                Path.GetExtension(document.FileName).TrimStart('.'));
+
             var fileType = Path.GetExtension(document.FileName).TrimStart('.');
             var text = _processor.ExtractText(document.FilePath, fileType);
+            _logger.LogInformation("[Analyze] [{Elapsed}ms] Extracted {Chars} chars", sw.ElapsedMilliseconds, text.Length);
 
-            // Send progress update
             await _hubContext.Clients.Group($"area-{document.AreaId}")
                 .SendAsync("DocumentProgress", new { documentId, status = "Processing", progress = 30 });
 
             var chunks = _processor.SplitIntoChunks(text);
+            _logger.LogInformation("[Analyze] [{Elapsed}ms] Split into {Count} chunks", sw.ElapsedMilliseconds, chunks.Count);
 
-            // Send progress update
             await _hubContext.Clients.Group($"area-{document.AreaId}")
                 .SendAsync("DocumentProgress", new { documentId, status = "Processing", progress = 50 });
 
-            // Generate embeddings in parallel
-            var contents = chunks.Select(c => c.Content).ToList();
-            var embeddings = await _embeddingService.GenerateEmbeddingsParallel(contents);
+            _logger.LogInformation("[Analyze] [{Elapsed}ms] Starting embedding generation for {Count} chunks via Ollama...",
+                sw.ElapsedMilliseconds, chunks.Count);
 
-            // Send progress update
+            var contents = chunks.Select(c => c.Content).ToList();
+            var embeddings = await embeddingService.GenerateEmbeddingsParallel(contents);
+
+            _logger.LogInformation("[Analyze] [{Elapsed}ms] Embeddings done — got {Count} vectors",
+                sw.ElapsedMilliseconds, embeddings.Count);
+
             await _hubContext.Clients.Group($"area-{document.AreaId}")
                 .SendAsync("DocumentProgress", new { documentId, status = "Processing", progress = 80 });
 
@@ -183,7 +211,8 @@ public class DocumentsController : ControllerBase
                 chunks[i].Embedding = embeddings[i];
             }
 
-            // Save chunks
+            _logger.LogInformation("[Analyze] [{Elapsed}ms] Saving {Count} chunks to DB...", sw.ElapsedMilliseconds, chunks.Count);
+
             foreach (var chunk in chunks)
             {
                 var chunkEntity = new ChunkEntity
@@ -193,34 +222,47 @@ public class DocumentsController : ControllerBase
                     ChunkIndex = chunk.ChunkIndex,
                     Embedding = VectorStoreService.SerializeVector(chunk.Embedding!)
                 };
-                _dbContext.Chunks.Add(chunkEntity);
+                db.Chunks.Add(chunkEntity);
             }
 
             document.ProcessingStatus = "Completed";
             document.ChunkCount = chunks.Count;
-            await _dbContext.SaveChangesAsync();
+            await db.SaveChangesAsync();
 
-            // Update area counts
-            var area = await _dbContext.Areas.FindAsync(document.AreaId);
+            var area = await db.Areas.FindAsync(document.AreaId);
             if (area != null)
             {
-                area.DocumentCount = await _dbContext.Documents.CountAsync(d => d.AreaId == document.AreaId);
-                await _dbContext.SaveChangesAsync();
+                area.DocumentCount = await db.Documents.CountAsync(d => d.AreaId == document.AreaId);
+                await db.SaveChangesAsync();
             }
 
-            // Send completion update
+            _logger.LogInformation("[Analyze] [{Elapsed}ms] COMPLETED doc={Id} chunks={Count}",
+                sw.ElapsedMilliseconds, documentId, chunks.Count);
+
             await _hubContext.Clients.Group($"area-{document.AreaId}")
                 .SendAsync("DocumentProgress", new { documentId, status = "Completed", progress = 100 });
         }
         catch (Exception ex)
         {
-            document.ProcessingStatus = "Failed";
-            document.ErrorMessage = ex.Message;
-            await _dbContext.SaveChangesAsync();
+            _logger.LogError(ex, "[Analyze] [{Elapsed}ms] FAILED doc={Id}: {Message}",
+                sw.ElapsedMilliseconds, documentId, ex.Message);
 
-            // Send error update
-            await _hubContext.Clients.Group($"area-{document.AreaId}")
-                .SendAsync("DocumentProgress", new { documentId, status = "Failed", progress = 0, error = ex.Message });
+            // Re-fetch document in case the tracked entity is in a bad state
+            var failedDoc = await db.Documents.FindAsync(documentId);
+            if (failedDoc != null)
+            {
+                failedDoc.ProcessingStatus = "Failed";
+                failedDoc.ErrorMessage = ex.Message;
+                await db.SaveChangesAsync();
+            }
+
+            // Try to get areaId for SignalR notification
+            int areaId = failedDoc?.AreaId ?? 0;
+            if (areaId > 0)
+            {
+                await _hubContext.Clients.Group($"area-{areaId}")
+                    .SendAsync("DocumentProgress", new { documentId, status = "Failed", progress = 0, error = ex.Message });
+            }
         }
     }
 }

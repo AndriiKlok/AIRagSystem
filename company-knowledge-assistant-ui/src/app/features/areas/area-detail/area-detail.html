@@ -1,149 +1,140 @@
-<div class="container mt-4">
+﻿<div *ngIf="area">
 
-  <!-- Breadcrumb + header -->
-  <div *ngIf="area">
-    <nav aria-label="breadcrumb">
-      <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a routerLink="/areas">Areas</a></li>
-        <li class="breadcrumb-item active">{{ area.name }}</li>
-      </ol>
-    </nav>
-    <div class="d-flex justify-content-between align-items-start mb-4">
-      <div>
-        <h1 class="mb-0">{{ area.name }}</h1>
-        <p class="text-muted mb-1" *ngIf="area.description">{{ area.description }}</p>
-        <small class="text-muted">Documents: {{ documents.length }} | Chats: {{ chats.length }}</small>
+  <!-- Breadcrumb -->
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a routerLink="/areas">Areas</a></li>
+      <li class="breadcrumb-item active">{{ area.name }}</li>
+    </ol>
+  </nav>
+
+  <!-- Page header -->
+  <div class="page-header d-flex justify-content-between align-items-start mb-4">
+    <div>
+      <h1>{{ area.name }}</h1>
+      <p class="text-muted mt-1 mb-0" *ngIf="area.description" style="font-size:14px">{{ area.description }}</p>
+      <div class="d-flex gap-3 mt-2">
+        <span class="text-muted" style="font-size:12px"><i class="bi bi-file-earmark-text me-1"></i>{{ documents.length }} documents</span>
+        <span class="text-muted" style="font-size:12px"><i class="bi bi-chat me-1"></i>{{ chats.length }} chats</span>
       </div>
-      <div class="d-flex flex-column align-items-end gap-1">
-        <button class="btn btn-primary"
-                (click)="createChat()"
-                [disabled]="!canCreateChat"
-                [title]="canCreateChat ? 'Start a new chat' : 'Analyze at least one document first'">
-          <i class="bi bi-chat-dots me-1"></i>New Chat
-        </button>
-        <small *ngIf="!canCreateChat" class="text-muted fst-italic">Analyze a document to enable chat</small>
-      </div>
+    </div>
+    <div class="d-flex flex-column align-items-end gap-1">
+      <button class="btn btn-primary px-4" (click)="createChat()"
+              [disabled]="!canCreateChat"
+              [title]="canCreateChat ? 'Start a new chat' : 'Analyze at least one document first'">
+        <i class="bi bi-chat-dots me-1"></i>New Chat
+      </button>
+      <small *ngIf="!canCreateChat" class="text-muted fst-italic mt-1">Analyze a document first</small>
     </div>
   </div>
 
-  <div class="row">
+  <div class="row g-4">
 
-    <!-- ── Documents column ─────────────────────────────────────────────── -->
-    <div class="col-md-6 mb-4">
+    <!-- в”Ђв”Ђ Documents в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ -->
+    <div class="col-md-6">
       <div class="card h-100">
-        <div class="card-header">
-          <h5 class="mb-0">Documents</h5>
+        <div class="card-header d-flex align-items-center gap-2">
+          <i class="bi bi-file-earmark-text" style="color:var(--accent)"></i>
+          Documents
         </div>
 
-        <!-- Hidden file input -->
+        <!-- Hidden input -->
         <input type="file" id="areaFileInput" class="d-none" multiple
-               accept=".pdf,.docx,.txt,.md"
-               (change)="onFilesSelected($event)">
+               accept=".pdf,.docx,.txt,.md" (change)="onFilesSelected($event)">
 
-        <!-- Drag-and-drop zone -->
-        <div class="drop-zone px-3 py-3 border-bottom text-center"
+        <!-- Drop zone -->
+        <div class="drop-zone px-4 py-3 text-center"
              [class.drag-over]="isDragOver"
-             (dragover)="onDragOver($event)"
-             (dragleave)="onDragLeave($event)"
-             (drop)="onDrop($event)">
-          <i class="bi bi-cloud-upload fs-4 text-muted"></i>
-          <span class="text-muted ms-2">Drop files here or</span>
-          <button class="btn btn-sm btn-outline-primary ms-2" (click)="openFilePicker()">
-            <i class="bi bi-upload me-1"></i>Choose files
-          </button>
-          <div><small class="text-muted">PDF · DOCX · TXT · MD</small></div>
+             (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">
+          <i class="bi bi-cloud-arrow-up" style="font-size:22px;color:var(--text-muted)"></i>
+          <div class="mt-1">
+            <span class="text-muted" style="font-size:13px">Drop files here or </span>
+            <button class="btn btn-sm btn-outline-primary" (click)="openFilePicker()">Choose files</button>
+          </div>
+          <small class="text-muted d-block mt-1" style="font-size:11px">PDF В· DOCX В· TXT В· MD</small>
         </div>
 
         <div class="card-body pt-2">
 
-          <!-- Pending uploads (in-flight HTTP) -->
+          <!-- Uploading files -->
           <div *ngFor="let p of pendingUploads" class="doc-row mb-2">
-            <div class="d-flex justify-content-between">
-              <span class="fw-semibold text-truncate" style="max-width:200px">{{ p.file.name }}</span>
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="fw-medium text-truncate" style="max-width:200px;font-size:13px">{{ p.file.name }}</span>
               <small class="text-muted">{{ p.file.size | number }} B</small>
             </div>
-            <div *ngIf="p.status === 'uploading'" class="mt-1">
-              <div class="progress" style="height:5px">
-                <div class="progress-bar progress-bar-striped progress-bar-animated bg-info"
+            <div *ngIf="p.status === 'uploading'">
+              <div class="progress mb-1" style="height:4px">
+                <div class="progress-bar progress-bar-striped progress-bar-animated"
                      [style.width.%]="p.progress"></div>
               </div>
-              <small class="text-info">Uploading {{ p.progress }}%</small>
+              <small style="color:var(--accent);font-size:11px">Uploading {{ p.progress }}%</small>
             </div>
-            <small *ngIf="p.status === 'done'" class="text-success">
-              <i class="bi bi-check-circle-fill"></i> Uploaded
+            <small *ngIf="p.status === 'done'" style="color:var(--success);font-size:11px">
+              <i class="bi bi-check-circle-fill me-1"></i>Uploaded
             </small>
-            <small *ngIf="p.status === 'error'" class="text-danger">
-              <i class="bi bi-x-circle-fill"></i> {{ p.error }}
+            <small *ngIf="p.status === 'error'" style="color:var(--danger);font-size:11px">
+              <i class="bi bi-x-circle-fill me-1"></i>{{ p.error }}
             </small>
           </div>
 
           <!-- Empty state -->
           <div *ngIf="documents.length === 0 && pendingUploads.length === 0"
-               class="text-center text-muted py-3">
-            No documents yet. Drop a file above or click Choose files.
+               class="text-center py-4">
+            <i class="bi bi-inbox" style="font-size:32px;color:var(--text-muted)"></i>
+            <p class="text-muted mt-2 mb-0" style="font-size:13px">No documents yet.<br>Drop a file above to add one.</p>
           </div>
 
-          <!-- Saved documents list -->
-          <div *ngFor="let doc of documents"
-               class="doc-row d-flex justify-content-between align-items-start mb-2">
+          <!-- Document list -->
+          <div *ngFor="let doc of documents" class="doc-row d-flex align-items-start gap-2 mb-2">
 
             <div class="flex-grow-1 overflow-hidden">
-              <!-- Filename + spinner -->
               <div class="d-flex align-items-center gap-2 flex-wrap">
-                <span class="fw-semibold text-truncate" style="max-width:180px">{{ doc.fileName }}</span>
+                <span class="fw-medium text-truncate" style="max-width:180px;font-size:13px">{{ doc.fileName }}</span>
 
-                <span *ngIf="isAnalyzing(doc)">
-                  <div class="spinner-border spinner-border-sm text-primary" role="status">
-                    <span class="visually-hidden">Analyzing…</span>
-                  </div>
+                <span *ngIf="isAnalyzing(doc)" class="d-flex align-items-center gap-1">
+                  <div class="spinner-border spinner-border-sm" style="color:var(--accent);width:12px;height:12px;border-width:2px" role="status"></div>
+                  <span style="font-size:11px;color:var(--accent)">AnalyzingвЂ¦</span>
                 </span>
 
-                <span *ngIf="getAnalysisStatus(doc).status === 'Completed'"
-                      class="badge bg-success">
-                  <i class="bi bi-check-circle-fill"></i> Ready
+                <span *ngIf="!isAnalyzing(doc) && getAnalysisStatus(doc).status === 'Completed'" class="badge bg-success">
+                  <i class="bi bi-check-circle-fill me-1"></i>Ready
                 </span>
-
-                <span *ngIf="getAnalysisStatus(doc).status === 'Uploaded'"
-                      class="badge bg-secondary">Uploaded</span>
-
-                <span *ngIf="getAnalysisStatus(doc).status === 'Failed'"
-                      class="badge bg-danger">Failed</span>
+                <span *ngIf="!isAnalyzing(doc) && getAnalysisStatus(doc).status === 'Uploaded'" class="badge bg-secondary">Uploaded</span>
+                <span *ngIf="!isAnalyzing(doc) && getAnalysisStatus(doc).status === 'Failed'" class="badge bg-danger">Failed</span>
               </div>
 
-              <!-- Meta -->
-              <small class="text-muted">{{ doc.fileSize | number }} B · Chunks: {{ doc.chunkCount }}</small>
+              <small class="text-muted d-block mt-1" style="font-size:11px">
+                {{ doc.fileSize | number }} B<span *ngIf="doc.chunkCount"> В· {{ doc.chunkCount }} chunks</span>
+              </small>
 
-              <!-- Analysis progress bar -->
-              <div *ngIf="isAnalyzing(doc)" class="mt-1">
-                <div class="progress" style="height:5px">
+              <!-- Analysis progress -->
+              <div *ngIf="isAnalyzing(doc)" class="mt-2">
+                <div class="progress mb-1" style="height:4px">
                   <div class="progress-bar progress-bar-striped progress-bar-animated"
                        [style.width.%]="getAnalysisStatus(doc).progress"></div>
                 </div>
-                <small class="text-primary">Analyzing {{ getAnalysisStatus(doc).progress }}%</small>
-                <small *ngIf="isProgressStale(doc)" class="text-warning d-block">
-                  <i class="bi bi-exclamation-triangle-fill"></i>
-                  No updates for {{ getStaleSeconds(doc) }}s — check backend logs
+                <small style="color:var(--accent);font-size:11px">{{ getAnalysisStatus(doc).progress }}%</small>
+                <small *ngIf="isProgressStale(doc)" class="d-block mt-1" style="color:var(--warning);font-size:11px">
+                  <i class="bi bi-exclamation-triangle-fill me-1"></i>No updates for {{ getStaleSeconds(doc) }}s
                 </small>
               </div>
 
-              <!-- Error detail -->
+              <!-- Error -->
               <small *ngIf="getAnalysisStatus(doc).status === 'Failed' && getAnalysisStatus(doc).error"
-                     class="text-danger d-block">
+                     class="d-block mt-1" style="color:var(--danger);font-size:11px">
                 {{ getAnalysisStatus(doc).error }}
               </small>
             </div>
 
-            <!-- Action buttons -->
-            <div class="d-flex flex-column gap-1 ms-2 flex-shrink-0">
+            <!-- Actions -->
+            <div class="d-flex flex-column gap-1 flex-shrink-0">
               <button *ngIf="getAnalysisStatus(doc).status === 'Uploaded' || getAnalysisStatus(doc).status === 'Failed'"
-                      class="btn btn-sm btn-outline-info"
-                      (click)="analyzeDocument(doc.id)"
-                      title="Start AI analysis">
+                      class="btn btn-sm btn-outline-info" style="padding:.2rem .5rem;font-size:12px"
+                      (click)="analyzeDocument(doc.id)" title="Analyze document">
                 <i class="bi bi-cpu"></i>
               </button>
-              <button class="btn btn-sm btn-outline-danger"
-                      (click)="deleteDocument(doc.id)"
-                      title="Delete document">
+              <button class="btn btn-sm btn-outline-danger" style="padding:.2rem .5rem;font-size:12px"
+                      (click)="deleteDocument(doc.id)" title="Delete">
                 <i class="bi bi-trash"></i>
               </button>
             </div>
@@ -153,29 +144,34 @@
       </div>
     </div>
 
-    <!-- ── Chats column ─────────────────────────────────────────────────── -->
-    <div class="col-md-6 mb-4">
+    <!-- в”Ђв”Ђ Chats в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ -->
+    <div class="col-md-6">
       <div class="card h-100">
-        <div class="card-header">
-          <h5 class="mb-0">Chats</h5>
+        <div class="card-header d-flex align-items-center gap-2">
+          <i class="bi bi-chat" style="color:var(--accent)"></i>
+          Chats
         </div>
         <div class="card-body">
-          <div *ngIf="chats.length === 0" class="text-center text-muted">
-            No chats yet.
+          <div *ngIf="chats.length === 0" class="text-center py-4">
+            <i class="bi bi-chat-square-dots" style="font-size:32px;color:var(--text-muted)"></i>
+            <p class="text-muted mt-2 mb-0" style="font-size:13px">No chats yet.<br>Analyze a document then start one.</p>
           </div>
-          <div *ngFor="let chat of chats"
-               class="d-flex justify-content-between align-items-center mb-2">
-            <div>
-              <a [routerLink]="['/chats', chat.id]" class="text-decoration-none fw-semibold">
+
+          <div *ngFor="let chat of chats" class="chat-row d-flex justify-content-between align-items-center mb-2">
+            <div class="overflow-hidden">
+              <a [routerLink]="['/chats', chat.id]" class="fw-medium text-decoration-none"
+                 style="font-size:14px;color:var(--text-primary)">
                 {{ chat.name }}
               </a>
-              <br>
-              <small class="text-muted">
-                Messages: {{ chat.messageCount }} ·
-                Last: {{ chat.lastMessageAt | date:'shortDate' }}
-              </small>
+              <div class="text-muted mt-1" style="font-size:11px">
+                <span><i class="bi bi-chat-text me-1"></i>{{ chat.messageCount }} messages</span>
+                <span class="ms-2" *ngIf="chat.lastMessageAt">
+                  <i class="bi bi-clock me-1"></i>{{ chat.lastMessageAt | date:'MMM d' }}
+                </span>
+              </div>
             </div>
-            <button class="btn btn-sm btn-outline-danger" (click)="deleteChat(chat.id)">
+            <button class="btn btn-sm btn-outline-danger flex-shrink-0" style="padding:.2rem .5rem;font-size:12px"
+                    (click)="deleteChat(chat.id)">
               <i class="bi bi-trash"></i>
             </button>
           </div>

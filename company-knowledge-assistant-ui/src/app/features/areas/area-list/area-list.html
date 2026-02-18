@@ -1,20 +1,44 @@
-<div class="container mt-4">
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Areas</h2>
-    <button (click)="createArea()" class="btn btn-primary">Create Area</button>
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1>Areas</h1>
+    <p class="text-muted mt-1 mb-0" style="font-size:14px">Your knowledge bases and document collections</p>
   </div>
+  <button (click)="createArea()" class="btn btn-primary px-4">
+    <i class="bi bi-plus-lg me-1"></i>Create Area
+  </button>
+</div>
 
-  <div class="row">
-    <div class="col-md-4 mb-4" *ngFor="let area of areas">
-      <div class="card">
-        <div class="card-body">
-          <h5 class="card-title">{{ area.name }}</h5>
-          <p class="card-text">{{ area.description || 'No description' }}</p>
-          <p class="text-muted">Documents: {{ area.documentCount }}, Chats: {{ area.chatCount }}</p>
-          <div class="btn-group">
-            <a [routerLink]="['/areas', area.id]" class="btn btn-outline-primary btn-sm">View</a>
-            <a [routerLink]="['/areas', area.id, 'edit']" class="btn btn-outline-secondary btn-sm">Edit</a>
-            <button (click)="deleteArea(area.id)" class="btn btn-outline-danger btn-sm">Delete</button>
+<div *ngIf="areas.length === 0" class="text-center py-5">
+  <div style="font-size:48px;margin-bottom:1rem">&#128193;</div>
+  <h5 style="color:var(--text-secondary)">No areas yet</h5>
+  <p class="text-muted">Create your first knowledge area to get started.</p>
+  <button (click)="createArea()" class="btn btn-primary mt-2">Create Area</button>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-6 col-lg-4" *ngFor="let area of areas">
+    <div class="area-card">
+      <div class="d-flex align-items-start gap-3">
+        <div class="area-icon">
+          <i class="bi bi-folder2-open"></i>
+        </div>
+        <div class="flex-grow-1 overflow-hidden">
+          <h6 class="mb-0 fw-semibold" style="font-size:15px">{{ area.name }}</h6>
+          <p class="text-muted mb-2 mt-1" style="font-size:13px">{{ area.description || 'No description' }}</p>
+          <div class="d-flex gap-3 mb-3">
+            <span class="text-muted" style="font-size:12px">
+              <i class="bi bi-file-earmark-text me-1"></i>{{ area.documentCount }} docs
+            </span>
+            <span class="text-muted" style="font-size:12px">
+              <i class="bi bi-chat me-1"></i>{{ area.chatCount }} chats
+            </span>
+          </div>
+          <div class="d-flex gap-2">
+            <a [routerLink]="['/areas', area.id]" class="btn btn-sm btn-primary px-3">Open</a>
+            <a [routerLink]="['/areas', area.id, 'edit']" class="btn btn-sm btn-outline-secondary">Edit</a>
+            <button (click)="deleteArea(area.id)" class="btn btn-sm btn-outline-danger ms-auto">
+              <i class="bi bi-trash"></i>
+            </button>
           </div>
         </div>
       </div>

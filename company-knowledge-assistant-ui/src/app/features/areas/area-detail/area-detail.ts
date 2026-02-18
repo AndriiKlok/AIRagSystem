@@ -192,6 +192,7 @@ export class AreaDetail implements OnInit, OnDestroy {
 
   analyzeDocument(id: number): void {
     this.analysisProgress[id] = { status: 'Processing', progress: 0 };
+    this.lastProgressAt[id] = Date.now();   // start stale timer from NOW, not from uploadedAt
     this.cdr.detectChanges();
     this.syncPollState();
 

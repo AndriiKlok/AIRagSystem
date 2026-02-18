@@ -1,57 +1,86 @@
-<div class="container-fluid h-100 d-flex flex-column">
-  <div class="row flex-grow-1">
-    <div class="col-12 d-flex flex-column h-100">
-      <!-- Messages Area -->
-      <div class="messages-container flex-grow-1 overflow-auto p-3" #messagesContainer>
-        <div *ngFor="let message of messages" class="message mb-3"
-             [ngClass]="{'message-user': message.role === 'user', 'message-assistant': message.role === 'assistant'}">
-          <div class="message-header">
-            <strong>{{ message.role === 'user' ? 'You' : 'Assistant' }}</strong>
-            <small class="text-muted ms-2">{{ message.createdAt | date:'short' }}</small>
-          </div>
-          <div class="message-content mt-2">
-            <div *ngIf="message.role === 'user'">
-              {{ message.content }}
-            </div>
-            <div *ngIf="message.role === 'assistant'" [innerHTML]="(message.contentHtml || message.content) | safeHtml"></div>
-          </div>
-          <div *ngIf="message.sources && message.sources.length > 0" class="message-sources mt-2">
-            <small class="text-muted">Sources:</small>
-            <ul class="list-unstyled ms-3">
+<div class="d-flex flex-column" style="height:calc(100vh - 80px)">
+
+  <!-- Messages -->
+  <div class="messages-container flex-grow-1 overflow-auto px-4 py-4" #messagesContainer>
+
+    <div *ngIf="messages.length === 0" class="h-100 d-flex flex-column align-items-center justify-content-center">
+      <div style="font-size:48px;margin-bottom:1rem">&#129302;</div>
+      <h5 style="color:var(--text-secondary);font-weight:600">Ready to help</h5>
+      <p class="text-muted" style="font-size:14px;text-align:center;max-width:300px">
+        Ask anything about the documents in this area.
+      </p>
+    </div>
+
+    <div *ngFor="let message of messages"
+         class="d-flex mb-3"
+         [class.justify-content-end]="message.role === 'user'">
+
+      <!-- Avatar -->
+      <div *ngIf="message.role === 'assistant'"
+           class="flex-shrink-0 me-3"
+           style="width:32px;height:32px;border-radius:50%;background:var(--accent-subtle);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:16px;align-self:flex-end">
+        &#129302;
+      </div>
+
+      <div style="max-width:72%">
+        <div class="message-bubble"
+             [class.message-user]="message.role === 'user'"
+             [class.message-assistant]="message.role === 'assistant'">
+          <div *ngIf="message.role === 'user'">{{ message.content }}</div>
+          <div *ngIf="message.role === 'assistant'" [innerHTML]="(message.contentHtml || message.content) | safeHtml"></div>
+        </div>
+
+        <!-- Sources -->
+        <div *ngIf="message.sources && message.sources.length > 0" class="mt-2">
+          <details style="font-size:11px;color:var(--text-muted)">
+            <summary style="cursor:pointer;user-select:none">Sources ({{ parseSources(message.sources).length }})</summary>
+            <ul class="list-unstyled ms-2 mt-1" style="margin-bottom:0">
               <li *ngFor="let source of parseSources(message.sources)">
-                <small>{{ source.documentName }} (chunk {{ source.chunkIndex }}, similarity: {{ source.similarity | number:'1.2-2' }})</small>
+                <i class="bi bi-file-earmark me-1"></i>
+                {{ source.documentName }}
+                <span class="text-muted"> · chunk {{ source.chunkIndex }} · {{ source.similarity | number:'1.2-2' }}</span>
               </li>
             </ul>
-          </div>
+          </details>
         </div>
 
-        <div *ngIf="messages.length === 0" class="text-center text-muted mt-5">
-          <p>No messages yet. Start a conversation!</p>
+        <div class="message-meta" [class.text-end]="message.role === 'user'">
+          {{ message.createdAt | date:'HH:mm' }}
         </div>
       </div>
 
-      <!-- Input Area -->
-      <div class="input-area border-top p-3">
-        <div class="input-group">
-          <textarea
-            class="form-control"
-            rows="2"
-            placeholder="Ask a question about your documents..."
-            [(ngModel)]="newMessage"
-            (keypress)="onKeyPress($event)"
-            [disabled]="isLoading"
-          ></textarea>
-          <button
-            class="btn btn-primary"
-            type="button"
-            (click)="sendMessage()"
-            [disabled]="isLoading || !newMessage.trim()"
-          >
-            <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2"></span>
-            Send
-          </button>
-        </div>
+      <!-- User avatar -->
+      <div *ngIf="message.role === 'user'"
+           class="flex-shrink-0 ms-3"
+           style="width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;font-weight:600;align-self:flex-end">
+        U
       </div>
+
     </div>
   </div>
+
+  <!-- Input -->
+  <div class="input-area px-4 py-3">
+    <div class="d-flex gap-2 align-items-end">
+      <textarea
+        class="form-control flex-grow-1"
+        rows="2"
+        placeholder="Ask a question about your documents…"
+        [(ngModel)]="newMessage"
+        (keypress)="onKeyPress($event)"
+        [disabled]="isLoading"
+        style="resize:none;border-radius:var(--radius-md);padding:.65rem .9rem;"
+      ></textarea>
+      <button
+        class="btn btn-primary"
+        style="height:fit-content;padding:.65rem 1.25rem;border-radius:var(--radius-md)"
+        (click)="sendMessage()"
+        [disabled]="isLoading || !newMessage.trim()">
+        <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-1" style="width:12px;height:12px;border-width:2px"></span>
+        <span *ngIf="!isLoading"><i class="bi bi-send-fill"></i></span>
+        <span *ngIf="isLoading">…</span>
+      </button>
+    </div>
+  </div>
+
 </div>

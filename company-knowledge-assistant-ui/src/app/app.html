@@ -1,22 +1,13 @@
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-  <div class="container">
-    <a class="navbar-brand" routerLink="/">Company Knowledge Assistant</a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-    <div class="collapse navbar-collapse" id="navbarNav">
-      <ul class="navbar-nav me-auto">
-        <li class="nav-item">
-          <a class="nav-link" routerLink="/areas">Areas</a>
-        </li>
-      </ul>
-      <button class="theme-toggle" id="themeToggle" title="Toggle theme">
-        <i class="bi bi-moon-fill" id="themeIcon"></i>
-      </button>
-    </div>
-  </div>
+<nav class="app-navbar">
+  <a class="brand" routerLink="/">
+    <div class="brand-icon">&#x2728;</div>
+    Company Knowledge Assistant
+  </a>
+  <ul class="nav-links">
+    <li><a routerLink="/areas" routerLinkActive="active">Areas</a></li>
+  </ul>
 </nav>
 
-<main class="container mt-4">
+<main class="container-lg py-4">
   <router-outlet></router-outlet>
 </main>
