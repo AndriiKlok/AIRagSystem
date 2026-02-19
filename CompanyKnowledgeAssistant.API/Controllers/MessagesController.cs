@@ -1,8 +1,11 @@
 using CompanyKnowledgeAssistant.Core.Entities;
 using CompanyKnowledgeAssistant.Infrastructure.Data;
 using CompanyKnowledgeAssistant.Infrastructure.Services;
+using CompanyKnowledgeAssistant.API.Hubs;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using System.Text;
 
 namespace CompanyKnowledgeAssistant.API.Controllers;
 
@@ -11,23 +14,17 @@ namespace CompanyKnowledgeAssistant.API.Controllers;
 public class MessagesController : ControllerBase
 {
     private readonly AppDbContext _dbContext;
-    private readonly EmbeddingService _embeddingService;
-    private readonly VectorStoreService _vectorStore;
-    private readonly OllamaLlmService _llmService;
-    private readonly HtmlSanitizerService _htmlSanitizer;
+    private readonly IHubContext<ChatHub> _hubContext;
+    private readonly IServiceScopeFactory _scopeFactory;
 
     public MessagesController(
         AppDbContext dbContext,
-        EmbeddingService embeddingService,
-        VectorStoreService vectorStore,
-        OllamaLlmService llmService,
-        HtmlSanitizerService htmlSanitizer)
+        IHubContext<ChatHub> hubContext,
+        IServiceScopeFactory scopeFactory)
     {
         _dbContext = dbContext;
-        _embeddingService = embeddingService;
-        _vectorStore = vectorStore;
-        _llmService = llmService;
-        _htmlSanitizer = htmlSanitizer;
+        _hubContext = hubContext;
+        _scopeFactory = scopeFactory;
     }
 
     [HttpGet]
@@ -49,7 +46,7 @@ public class MessagesController : ControllerBase
         if (chat == null)
             return NotFound("Chat not found");
 
-        // Save user message
+        // Save user message immediately
         var userMessage = new Message
         {
             ChatId = dto.ChatId,
@@ -60,97 +57,131 @@ public class MessagesController : ControllerBase
         _dbContext.Messages.Add(userMessage);
         await _dbContext.SaveChangesAsync();
 
-        // Generate question embedding
-        var questionEmbedding = await _embeddingService.GenerateEmbedding(dto.Content);
-
-        // Search similar chunks
-        var similarChunks = await _vectorStore.SearchSimilarChunks(chat.AreaId, questionEmbedding, 7);
-
-        // Build context
-        var context = BuildContext(similarChunks);
-
-        // Build prompt
-        var prompt = BuildPrompt(dto.Content, context);
-
-        // Generate response
-        var rawResponse = await _llmService.GenerateResponse(prompt);
-
-        // Sanitize HTML
-        var sanitizedHtml = _htmlSanitizer.Sanitize(rawResponse);
-
-        // Extract plain text
-        var plainText = ExtractPlainText(sanitizedHtml);
-
-        // Save assistant message
-        var assistantMessage = new Message
+        // Broadcast user message via SignalR right away
+        await _hubContext.Clients.Group($"chat-{dto.ChatId}").SendAsync("ReceiveUserMessage", new
         {
-            ChatId = dto.ChatId,
-            Role = "assistant",
-            Content = plainText,
-            ContentHtml = sanitizedHtml,
-            Sources = System.Text.Json.JsonSerializer.Serialize(similarChunks.Select(c => new
+            id = userMessage.Id,
+            chatId = userMessage.ChatId,
+            role = userMessage.Role,
+            content = userMessage.Content,
+            createdAt = userMessage.CreatedAt
+        });
+
+        // Fire background streaming task
+        var chatId = dto.ChatId;
+        var areaId = chat.AreaId;
+        var content = dto.Content;
+        _ = Task.Run(() => StreamAssistantResponseAsync(chatId, areaId, content));
+
+        return Ok(new { userMessageId = userMessage.Id });
+    }
+
+    private async Task StreamAssistantResponseAsync(int chatId, int areaId, string content)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var embeddingService = scope.ServiceProvider.GetRequiredService<EmbeddingService>();
+        var vectorStore = scope.ServiceProvider.GetRequiredService<VectorStoreService>();
+        var llmService = scope.ServiceProvider.GetRequiredService<OllamaLlmService>();
+        var htmlSanitizer = scope.ServiceProvider.GetRequiredService<HtmlSanitizerService>();
+
+        try
+        {
+            // Signal that bot is "thinking" (retrieving context)
+            await _hubContext.Clients.Group($"chat-{chatId}").SendAsync("BotTyping", chatId);
+
+            var questionEmbedding = await embeddingService.GenerateEmbedding(content);
+            var similarChunks = await vectorStore.SearchSimilarChunks(areaId, questionEmbedding, 7);
+            var context = BuildContext(similarChunks);
+            var prompt = BuildPrompt(content, context);
+
+            var fullHtml = new StringBuilder();
+
+            await foreach (var token in llmService.GenerateResponseStreamAsync(prompt))
+            {
+                fullHtml.Append(token);
+
+                // Strip HTML tags so the streaming text is readable plain text
+                var plainToken = System.Text.RegularExpressions.Regex.Replace(token, "<[^>]*>", "");
+                plainToken = System.Text.RegularExpressions.Regex.Replace(plainToken, "[<>]", "");
+
+                if (!string.IsNullOrEmpty(plainToken))
+                {
+                    await _hubContext.Clients.Group($"chat-{chatId}")
+                        .SendAsync("ReceiveMessageChunk", chatId, plainToken);
+                }
+            }
+
+            // Sanitize and save assistant message
+            var sanitizedHtml = htmlSanitizer.Sanitize(fullHtml.ToString());
+            var plainText = ExtractPlainText(sanitizedHtml);
+            var sourcesJson = System.Text.Json.JsonSerializer.Serialize(similarChunks.Select(c => new
             {
                 documentName = c.DocumentName,
                 chunkIndex = c.ChunkIndex,
                 similarity = c.Similarity
-            })),
-            CreatedAt = DateTime.UtcNow
-        };
-        _dbContext.Messages.Add(assistantMessage);
+            }));
 
-        // Update chat
-        chat.LastMessageAt = DateTime.UtcNow;
-        chat.MessageCount++;
+            var assistantMessage = new Message
+            {
+                ChatId = chatId,
+                Role = "assistant",
+                Content = plainText,
+                ContentHtml = sanitizedHtml,
+                Sources = sourcesJson,
+                CreatedAt = DateTime.UtcNow
+            };
+            db.Messages.Add(assistantMessage);
 
-        await _dbContext.SaveChangesAsync();
+            var chat = await db.Chats.FindAsync(chatId);
+            if (chat != null)
+            {
+                chat.LastMessageAt = DateTime.UtcNow;
+                chat.MessageCount++;
+            }
+            await db.SaveChangesAsync();
 
-        return Ok(new MessageDto
+            // Signal completion with full formatted message
+            await _hubContext.Clients.Group($"chat-{chatId}").SendAsync("MessageStreamComplete", new
+            {
+                id = assistantMessage.Id,
+                chatId = chatId,
+                role = "assistant",
+                content = plainText,
+                contentHtml = sanitizedHtml,
+                sources = sourcesJson,
+                createdAt = assistantMessage.CreatedAt
+            });
+        }
+        catch (Exception ex)
         {
-            Id = assistantMessage.Id,
-            Role = "assistant",
-            ContentHtml = sanitizedHtml,
-            Sources = similarChunks,
-            CreatedAt = assistantMessage.CreatedAt
-        });
+            await _hubContext.Clients.Group($"chat-{chatId}")
+                .SendAsync("MessageStreamError", chatId, ex.Message);
+        }
     }
 
-    private string BuildContext(List<ChunkResult> chunks)
+    private static string BuildContext(List<ChunkResult> chunks)
     {
-        var contextParts = chunks.Select(chunk =>
-            $"[Source: {chunk.DocumentName}]\n{chunk.Content}");
-        return string.Join("\n\n---\n\n", contextParts);
+        var parts = chunks.Select(c => $"[Source: {c.DocumentName}]\n{c.Content}");
+        return string.Join("\n\n---\n\n", parts);
     }
 
-    private string BuildPrompt(string question, string context)
+    private static string BuildPrompt(string question, string context)
     {
-        return $@"
-Context from documents:
+        return $@"Context from documents:
 {context}
 
 User question: {question}
 
-Provide a detailed, well-formatted HTML response:
-";
+Provide a detailed, well-formatted HTML response:";
     }
 
-    private string ExtractPlainText(string html)
-    {
-        // Simple HTML to text conversion
-        return System.Text.RegularExpressions.Regex.Replace(html, "<[^>]*>", "").Trim();
-    }
+    private static string ExtractPlainText(string html) =>
+        System.Text.RegularExpressions.Regex.Replace(html, "<[^>]*>", "").Trim();
 }
 
 public class SendMessageDto
 {
     public int ChatId { get; set; }
     public string Content { get; set; } = string.Empty;
-}
-
-public class MessageDto
-{
-    public int Id { get; set; }
-    public string Role { get; set; } = string.Empty;
-    public string? ContentHtml { get; set; }
-    public List<ChunkResult>? Sources { get; set; }
-    public DateTime CreatedAt { get; set; }
 }

@@ -3,7 +3,7 @@
   <!-- Messages -->
   <div class="messages-container flex-grow-1 overflow-auto px-4 py-4" #messagesContainer>
 
-    <div *ngIf="messages.length === 0" class="h-100 d-flex flex-column align-items-center justify-content-center">
+    <div *ngIf="messages.length === 0 && !isBotTyping && !isStreaming" class="h-100 d-flex flex-column align-items-center justify-content-center">
       <div style="font-size:48px;margin-bottom:1rem">&#129302;</div>
       <h5 style="color:var(--text-secondary);font-weight:600">Ready to help</h5>
       <p class="text-muted" style="font-size:14px;text-align:center;max-width:300px">
@@ -57,6 +57,32 @@
       </div>
 
     </div>
+
+    <!-- Typing indicator -->
+    <div *ngIf="isBotTyping" class="d-flex mb-3">
+      <div class="flex-shrink-0 me-3"
+           style="width:32px;height:32px;border-radius:50%;background:var(--accent-subtle);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:16px;align-self:flex-end">
+        &#129302;
+      </div>
+      <div class="message-bubble message-assistant d-flex align-items-center" style="padding:.75rem 1rem">
+        <div class="typing-indicator">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Streaming message in progress -->
+    <div *ngIf="isStreaming" class="d-flex mb-3">
+      <div class="flex-shrink-0 me-3"
+           style="width:32px;height:32px;border-radius:50%;background:var(--accent-subtle);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:16px;align-self:flex-end">
+        &#129302;
+      </div>
+      <div style="max-width:72%">
+        <div class="message-bubble message-assistant">{{ streamingContent }}<span class="cursor-blink">&#9608;</span></div>
+        <div class="message-meta">typing…</div>
+      </div>
+    </div>
+
   </div>
 
   <!-- Input -->
@@ -68,15 +94,15 @@
         placeholder="Ask a question about your documents…"
         [(ngModel)]="newMessage"
         (keypress)="onKeyPress($event)"
-        [disabled]="isLoading"
+        [disabled]="isBusy"
         style="resize:none;border-radius:var(--radius-md);padding:.65rem .9rem;"
       ></textarea>
       <button
         class="btn btn-primary"
         style="height:fit-content;padding:.65rem 1.25rem;border-radius:var(--radius-md)"
         (click)="sendMessage()"
-        [disabled]="isLoading || !newMessage.trim()">
-        <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-1" style="width:12px;height:12px;border-width:2px"></span>
+        [disabled]="isBusy || !newMessage.trim()">
+        <span *ngIf="isLoading" class="spinner-border spinner-border-sm" style="width:12px;height:12px;border-width:2px"></span>
         <span *ngIf="!isLoading"><i class="bi bi-send-fill"></i></span>
         <span *ngIf="isLoading">…</span>
       </button>

@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using System.Net.Http.Json;
@@ -8,12 +10,13 @@ public class OllamaLlmService
 {
     private readonly HttpClient _httpClient;
     private readonly string _ollamaUrl;
+    private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNameCaseInsensitive = true };
 
     public OllamaLlmService(HttpClient httpClient, IConfiguration configuration)
     {
         _httpClient = httpClient;
         _ollamaUrl = configuration["Ollama:BaseUrl"] ?? "http://localhost:11434";
-        _httpClient.Timeout = TimeSpan.FromSeconds(60);
+        _httpClient.Timeout = TimeSpan.FromMinutes(5);
     }
 
     public async Task<string> GenerateResponse(string prompt)
@@ -27,18 +30,60 @@ public class OllamaLlmService
                 new { role = "user", content = prompt }
             },
             stream = false,
-            options = new
-            {
-                temperature = 0.3,
-                num_predict = 1000
-            }
+            options = new { temperature = 0.3, num_predict = 1000 }
         };
 
         var response = await _httpClient.PostAsJsonAsync($"{_ollamaUrl}/api/chat", request);
         response.EnsureSuccessStatusCode();
 
-        var result = await response.Content.ReadFromJsonAsync<ChatResponse>();
+        var result = await response.Content.ReadFromJsonAsync<ChatResponse>(_jsonOpts);
         return result?.Message?.Content ?? string.Empty;
+    }
+
+    public async IAsyncEnumerable<string> GenerateResponseStreamAsync(
+        string prompt,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var requestBody = new
+        {
+            model = "llama3.1:8b",
+            messages = new[]
+            {
+                new { role = "system", content = GetSystemPrompt() },
+                new { role = "user", content = prompt }
+            },
+            stream = true,
+            options = new { temperature = 0.3, num_predict = 1000 }
+        };
+
+        var json = JsonSerializer.Serialize(requestBody);
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"{_ollamaUrl}/api/chat")
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        };
+
+        using var response = await _httpClient.SendAsync(
+            httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream);
+
+        while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
+        {
+            var line = await reader.ReadLineAsync(cancellationToken);
+            if (string.IsNullOrWhiteSpace(line)) continue;
+
+            ChatResponse? chunk = null;
+            try { chunk = JsonSerializer.Deserialize<ChatResponse>(line, _jsonOpts); }
+            catch { continue; }
+
+            var content = chunk?.Message?.Content;
+            if (!string.IsNullOrEmpty(content))
+                yield return content;
+
+            if (chunk?.Done == true) break;
+        }
     }
 
     private string GetSystemPrompt()

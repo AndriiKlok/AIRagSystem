@@ -114,6 +114,41 @@ export class SignalrService {
     }
   }
 
+  addUserMessageListener(callback: (message: any) => void): void {
+    this.hubConnection?.on('ReceiveUserMessage', callback);
+  }
+  removeUserMessageListener(): void {
+    this.hubConnection?.off('ReceiveUserMessage');
+  }
+
+  addBotTypingListener(callback: (chatId: number) => void): void {
+    this.hubConnection?.on('BotTyping', callback);
+  }
+  removeBotTypingListener(): void {
+    this.hubConnection?.off('BotTyping');
+  }
+
+  addMessageChunkListener(callback: (chatId: number, token: string) => void): void {
+    this.hubConnection?.on('ReceiveMessageChunk', callback);
+  }
+  removeMessageChunkListener(): void {
+    this.hubConnection?.off('ReceiveMessageChunk');
+  }
+
+  addMessageStreamCompleteListener(callback: (message: any) => void): void {
+    this.hubConnection?.on('MessageStreamComplete', callback);
+  }
+  removeMessageStreamCompleteListener(): void {
+    this.hubConnection?.off('MessageStreamComplete');
+  }
+
+  addMessageStreamErrorListener(callback: (chatId: number, error: string) => void): void {
+    this.hubConnection?.on('MessageStreamError', callback);
+  }
+  removeMessageStreamErrorListener(): void {
+    this.hubConnection?.off('MessageStreamError');
+  }
+
   stopConnection(): void {
     if (this.hubConnection) {
       this.hubConnection.stop().catch(err => console.error('Error stopping SignalR connection:', err));
